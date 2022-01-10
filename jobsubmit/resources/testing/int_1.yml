@@ -1,0 +1,4 @@
+arg1:
+  atype : '-'
+  type: int
+  range: [0, 4, 2]

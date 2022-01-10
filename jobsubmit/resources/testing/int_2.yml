@@ -1,0 +1,4 @@
+arg1:
+  atype : '-'
+  type: int
+  values: [100, 0]

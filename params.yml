@@ -1,0 +1,4 @@
+arg1:
+  atype : '-'
+  type: bool
+  default: False
