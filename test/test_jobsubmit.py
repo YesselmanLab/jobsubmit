@@ -1,8 +1,9 @@
 """
 Tests for `jobsubmit` module.
 """
+
 import pytest
-from jobsubmit import jobsubmit
+from jobsubmit import cli
 
 
 def test():
