@@ -1,53 +1,64 @@
-from string import Template
+import re
 import yaml
-import itertools
-
-start_template = """
-#!/bin/bash
-#SBATCH -o $output 
-#SBATCH -e $error
-#SBATCH -t $time 
-#SBATCH -n 1
-#SBATCH -N 1
-"""
-
-class obj1(object):
-    def __iter__(self):
-        for i in range(10):
-            yield i
+import click
+from dataclasses import dataclass, asdict
+from typing import Dict
 
 
-def main():
-    args = {
-        'output' : 'output_file',
-        'error' : 'error_file',
-        'time' : '24:00:00'
-    }
-    o1 = obj1()
-    o2 = obj1()
-    combos = itertools.product(*[o1, o2])
-    for c in combos:
-        print(c)
-    exit()
-    params = {"C"     : [.001, .01, .1],
-              "gamma" : [.01, 1, 10],
-              "kernel": ["linear", "rbf"]}
-    keys, values = zip(*params.items())
-    for bundle in itertools.product(*values):
-        d = dict(zip(keys, bundle))
-        print(d)
-    exit()
-    params = yaml.load(open("params.yml"), Loader=yaml.FullLoader)
-    for arg, vals in params.items():
-        print(arg, vals)
-    exit()
-    f = open("default.template")
-    lines = f.readlines()
-    f.close()
-    job_str = "".join(lines)
-    t = Template(job_str)
-    print(t.substitute(**args))
-    pass
+@dataclass
+class SlurmJobConfig:
+    job_name: str
+    output: str = "slurm-%j.out"
+    error: str = "slurm-%j.err"
+    time: str = "01:00:00"
+    partition: str = "general"
+    nodes: int = 1
+    ntasks_per_node: int = 1
+    mem: str = "4GB"
+    custom_args: Dict[str, str] = None
+
+
+def create_slurm_script(template_path: str, config: SlurmJobConfig):
+    """
+    Create a SLURM script from the given template and configuration.
+    """
+    with open(template_path, "r") as template_file:
+        template = template_file.read()
+
+    combined_args = {**asdict(config), **(config.custom_args or {})}
+
+    # Substitute placeholders
+    script = re.sub(
+        r"\$(\w+)", lambda m: str(combined_args.get(m.group(1), "")), template
+    )
+    return script
+
+
+def write_slurm_script(filename, script_content):
+    """
+    Write the SLURM script content to a file.
+    """
+    with open(filename, "w") as f:
+        f.write(script_content)
+
+
+@click.command()
+@click.argument("template", type=click.Path(exists=True))
+@click.argument("yaml_config", type=click.Path(exists=True))
+def main(template, yaml_config):
+    """
+    Generate SLURM job scripts.
+    """
+    with open(yaml_config, "r") as yaml_file:
+        config_data = yaml.safe_load(yaml_file)
+
+    config = SlurmJobConfig(**config_data)
+
+    script_content = create_slurm_script(template, config)
+    script_filename = f"{config.job_name}.slurm"
+    write_slurm_script(script_filename, script_content)
+
+    click.echo(f"SLURM script written to {script_filename}")
 
 
 if __name__ == "__main__":

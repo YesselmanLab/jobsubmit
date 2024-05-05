@@ -14,7 +14,6 @@ def setup_applevel_logger(logger_name=APP_LOGGER_NAME, is_debug=True, file_name=
 
     sh = logging.StreamHandler(sys.stdout)
     sh.setFormatter(formatter)
-    logger.handlers.clear()
     logger.addHandler(sh)
 
     if file_name:
