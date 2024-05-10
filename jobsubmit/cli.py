@@ -1,4 +1,5 @@
 import re
+import os
 import glob
 import click
 import yaml
@@ -14,6 +15,17 @@ log = get_logger("cli")
 
 @dataclass
 class SlurmJobConfig:
+    """
+    Represents the configuration for a Slurm job.
+
+    Attributes:
+        job_name (str): The name of the job.
+        time (str): The maximum time for the job to run.
+        nodes (int): The number of nodes to allocate for the job.
+        ntasks_per_node (int): The number of tasks to run per node.
+        mem (str): The amount of memory to allocate for the job.
+    """
+
     job_name: str = "test"
     time: str = "01:00:00"
     nodes: int = 1
@@ -21,9 +33,18 @@ class SlurmJobConfig:
     mem: str = "2GB"
 
 
-def generate_slurm_header(
-    config: SlurmJobConfig, job_num=-1, output_dir="", error_dir=""
-):
+def generate_slurm_header(config: SlurmJobConfig, job_dir="", job_num=-1):
+    """
+    Generate the SLURM header for a job submission.
+
+    Args:
+        config (SlurmJobConfig): The configuration object for the SLURM job.
+        job_dir (str, optional): The directory where the job output files will be stored. Defaults to "".
+        job_num (int, optional): The job number. Defaults to -1.
+
+    Returns:
+        str: The generated SLURM header as a string.
+    """
     path = get_lib_path() + "/jobsubmit/resources/job_header.txt"
     f = open(path)
     header = f.read()
@@ -33,32 +54,25 @@ def generate_slurm_header(
         name = args["job_name"]
     else:
         name = args["job_name"] + "-" + str(job_num)
-    if output_dir != "" and output_dir[-1] != "/":
-        output_dir += "/"
-    if error_dir != "" and error_dir[-1] != "/":
-        error_dir += "/"
-    args["output"] = output_dir + f"{name}.out"
-    args["error"] = error_dir + f"{name}.err"
+    if not job_dir == "" and not job_dir.endswith("/"):
+        job_dir = job_dir + "/"
+    args["output"] = job_dir + f"{name}.out"
+    args["error"] = job_dir + f"{name}.err"
     args["job_name"] = f"{name}"
 
-    header = re.sub(r"\$(\w+)", lambda m: str(args.get(m.group(1), "")), header)
+    header = (
+        re.sub(r"\$(\w+)", lambda m: str(args.get(m.group(1), "")), header) + "\n\n"
+    )
     return header
 
 
-def create_slurm_script(
-    template_path: str, config: SlurmJobConfig, custom_args: Dict[str, Union[str, int]]
-):
+def generate_task_str(template_str, custom_args):
     """
     Create a SLURM script from the given template and configuration.
     """
-    with open(template_path, "r") as template_file:
-        template = template_file.read()
-
-    combined_args = {**asdict(config), **custom_args}
-
     # Substitute placeholders
     script = re.sub(
-        r"\$(\w+)", lambda m: str(combined_args.get(m.group(1), "")), template
+        r"\$(\w+)", lambda m: str(custom_args.get(m.group(1), "")), template_str
     )
     return script
 
@@ -143,10 +157,27 @@ def fill_in_missing_default_params(config_data):
     return config_data
 
 
+def chunk_list(input_list, chunk_size):
+    """
+    Breaks a list into chunks of a given size.
+
+    Parameters:
+    - input_list (list): The list to be chunked.
+    - chunk_size (int): The size of each chunk.
+
+    Returns:
+    - list of lists: A list where each element is a chunk of the input list.
+    """
+    return [
+        input_list[i : i + chunk_size] for i in range(0, len(input_list), chunk_size)
+    ]
+
+
 @click.command()
 @click.argument("template", type=click.Path(exists=True))
 @click.argument("yaml_config", type=click.Path(exists=True))
-def main(template, yaml_config):
+@click.option("--extra-header-cmds", type=click.Path(exists=True), default=None)
+def main(template, yaml_config, extra_header_cmds=None):
     """
     Generate multiple SLURM job scripts.
     """
@@ -156,18 +187,34 @@ def main(template, yaml_config):
     log.info(f"YAML config: {yaml_config}")
     with open(yaml_config, "r") as yaml_file:
         config_data = yaml.safe_load(yaml_file)
-    exit()
-    config = SlurmJobConfig(**config_data["slurm_args"])
-    log.info(f"Slurm job parameters: {config}")
-    job_count = 1
-    for custom_args in generate_custom_args(config):
-        for _ in range(config.repeat):
-            config.job_name = f"{config_data['job_name']}_{job_count}"
-            script_content = create_slurm_script(template, config, custom_args)
-            script_filename = f"{config.job_name}.slurm"
-            write_slurm_script(script_filename, script_content)
-            click.echo(f"SLURM script written to {script_filename}")
-            job_count += 1
+    with open(template, "r") as template_file:
+        template_str = template_file.read()
+    header_cmds = ""
+    if extra_header_cmds:
+        with open(extra_header_cmds, "r") as f:
+            header_cmds = f.read()
+    config_data = fill_in_missing_default_params(config_data)
+    slurm_config = SlurmJobConfig(**config_data["slurm_args"])
+    log.info(f"Slurm job parameters: {slurm_config}")
+    custom_args = config_data["custom_args"]
+    os.makedirs(config_data["run_dir"], exist_ok=True)
+    all_custom_args = list(generate_custom_args(custom_args))
+    all_custom_args = all_custom_args * config_data["repeat"]
+    arg_chunks = chunk_list(all_custom_args, config_data["tasks_per_job"])
+    f = open("README_SUBMIT", "w")
+    for i, custom_args_chunk in enumerate(arg_chunks):
+        job_dir = os.path.abspath(config_data["run_dir"]) + "/" + str(i)
+        os.makedirs(job_dir, exist_ok=True)
+        script_content = generate_slurm_header(slurm_config, job_dir, i) + "\n\n"
+        if header_cmds != "":
+            script_content += header_cmds + "\n\n"
+        script_content += f"cd {job_dir}\n\n"
+        for chunk in custom_args_chunk:
+            script_content += generate_task_str(template_str, chunk) + "\n\n"
+        job_file = slurm_config.job_name + "-" + str(i) + ".sh"
+        write_slurm_script(job_dir + "/" + job_file, script_content)
+        f.write(f"sbatch {job_dir}/{job_file}\n")
+    f.close()
 
 
 # pylint: disable=no-value-for-parameter

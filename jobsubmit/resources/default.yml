@@ -1,0 +1,9 @@
+run_dir: "runs"
+tasks_per_job:  1
+repeat: 1
+slurm_args:
+  job_name: "test"
+  time: "01:00:00"
+  nodes: 1
+  ntasks_per_node: 1
+  mem: "2GB"

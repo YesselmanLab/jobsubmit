@@ -13,6 +13,27 @@ python -m pip install git+https://github.com/jyesselm/jobsubmit
 ```
 
 
-#Features
+## How to use 
 
-## TODO
+```shell
+jobsubmit --help
+
+```
+
+
+Takes a config file
+
+```yaml
+run_dir: "runs"
+tasks_per_job:  1
+repeat: 1
+slurm_args:
+  job_name: "test"
+  time: "01:00:00"
+  nodes: 1
+  ntasks_per_node: 1
+  mem: "2GB"
+custom_args:
+  filename: "*.txt"
+  range_arg: "1-3,5,7-10"
+```
