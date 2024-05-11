@@ -134,7 +134,7 @@ def fill_in_missing_default_dict_values(default, current):
             # If the value is a dictionary, recurse into it
             node = current.setdefault(key, {})
             fill_in_missing_default_dict_values(value, node)
-        else:
+        elif key not in current:
             # Set value if key is missing
             current[key] = value
     return current
