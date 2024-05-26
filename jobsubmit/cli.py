@@ -4,6 +4,7 @@ import glob
 import click
 import yaml
 import itertools
+import pandas as pd
 from dataclasses import dataclass, asdict, field
 from typing import Dict, List, Union
 
@@ -177,7 +178,8 @@ def chunk_list(input_list, chunk_size):
 @click.argument("template", type=click.Path(exists=True))
 @click.argument("yaml_config", type=click.Path(exists=True))
 @click.option("--extra-header-cmds", type=click.Path(exists=True), default=None)
-def main(template, yaml_config, extra_header_cmds=None):
+@click.option("--dataframe", default=None, type=click.Path(exists=True))
+def main(template, yaml_config, dataframe=None, extra_header_cmds=None):
     """
     Generate multiple SLURM job scripts.
     """
@@ -196,10 +198,20 @@ def main(template, yaml_config, extra_header_cmds=None):
     config_data = fill_in_missing_default_params(config_data)
     slurm_config = SlurmJobConfig(**config_data["slurm_args"])
     log.info(f"Slurm job parameters: {slurm_config}")
+    if "custom_args" not in config_data:
+        config_data["custom_args"] = {}
     custom_args = config_data["custom_args"]
-    os.makedirs(config_data["run_dir"], exist_ok=True)
-    all_custom_args = list(generate_custom_args(custom_args))
+    if dataframe and len(custom_args) > 0:
+        raise ValueError("Cannot use both custom_args and dataframe")
+    if dataframe:
+        log.info(f"Reading custom arguments from dataframe: {dataframe}")
+        df = pd.read_csv(dataframe)
+        all_custom_args = df.to_dict(orient="records")
+    else:
+        log.info("Generating custom arguments")
+        all_custom_args = list(generate_custom_args(custom_args))
     all_custom_args = all_custom_args * config_data["repeat"]
+    os.makedirs(config_data["run_dir"], exist_ok=True)
     arg_chunks = chunk_list(all_custom_args, config_data["tasks_per_job"])
     f = open("README_SUBMIT", "w")
     for i, custom_args_chunk in enumerate(arg_chunks):
