@@ -1,8 +1,8 @@
 #!/bin/bash
-#SBATCH --job-name=$job_name
-#SBATCH --output=$output
-#SBATCH --error=$error
-#SBATCH --time=$time
-#SBATCH --nodes=$nodes
-#SBATCH --ntasks-per-node=$ntasks_per_node
-#SBATCH --mem=$mem
+#SBATCH --job-name={job_name}
+#SBATCH --output={output}
+#SBATCH --error={error}
+#SBATCH --time={time}
+#SBATCH --nodes={nodes}
+#SBATCH --ntasks-per-node={ntasks_per_node}
+#SBATCH --mem={mem}

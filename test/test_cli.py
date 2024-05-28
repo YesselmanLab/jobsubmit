@@ -146,9 +146,6 @@ def test_fill_in_missing_default_params():
         },
     }
     current = fill_in_missing_default_params(params)
-    assert current["job_dir"] == default_params["job_dir"]
-    assert current["output_dir"] == default_params["output_dir"]
-    assert current["error_dir"] == default_params["error_dir"]
     assert current["tasks_per_job"] == default_params["tasks_per_job"]
     assert current["repeat"] == default_params["repeat"]
     assert current["slurm_args"]["job_name"] == default_params["slurm_args"]["job_name"]

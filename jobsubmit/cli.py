@@ -62,18 +62,40 @@ def generate_slurm_header(config: SlurmJobConfig, job_dir="", job_num=-1):
     args["job_name"] = f"{name}"
 
     header = (
-        re.sub(r"\$(\w+)", lambda m: str(args.get(m.group(1), "")), header) + "\n\n"
+        re.sub(r"\{(\w+)\}", lambda m: str(args.get(m.group(1), "")), header) + "\n\n"
     )
     return header
 
 
+import re
+
+
 def generate_task_str(template_str, custom_args):
     """
-    Create a SLURM script from the given template and configuration.
+    Generate a customized SLURM script by substituting placeholders in the template string
+    with corresponding values from the custom_args dictionary.
+
+    The function searches for placeholders in the format {VAR} within the template string
+    and replaces them with the values provided in the custom_args dictionary. If a placeholder
+    does not have a corresponding value in custom_args, it is replaced with an empty string.
+
+    Parameters:
+    template_str (str): The SLURM script template containing placeholders in the format {VAR}.
+    custom_args (dict): A dictionary where keys are placeholder names (without curly braces)
+                        and values are the values to substitute in the template.
+
+    Returns:
+    str: The customized SLURM script with placeholders replaced by their corresponding values.
+
+    Example:
+    template = "sbatch --job-name={JOB_NAME} --output={OUTPUT_FILE} script.sh"
+    args = {"JOB_NAME": "my_job", "OUTPUT_FILE": "output.txt"}
+    result = generate_task_str(template, args)
+    # result will be: "sbatch --job-name=my_job --output=output.txt script.sh"
     """
     # Substitute placeholders
     script = re.sub(
-        r"\$(\w+)", lambda m: str(custom_args.get(m.group(1), "")), template_str
+        r"\{(\w+)\}", lambda m: str(custom_args.get(m.group(1), "")), template_str
     )
     return script
 

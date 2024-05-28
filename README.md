@@ -21,7 +21,7 @@ jobsubmit --help
 ```
 
 
-Takes a config file
+Takes a config file (config.yml)
 
 ```yaml
 run_dir: "runs"
@@ -36,4 +36,18 @@ slurm_args:
 custom_args:
   filename: "*.txt"
   range_arg: "1-3,5,7-10"
+```
+
+Takes a template file (template.txt)
+
+```shell
+export VAR=/test
+echo $VAR
+echo "Processing filename: {filename}"
+echo "Processing range argument: {range_arg}"
+```
+Runs as 
+
+```shell
+jobsubmit template.txt config.yaml
 ```
