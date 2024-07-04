@@ -114,7 +114,7 @@ def parse_custom_arg(arg: str) -> List[Union[str, int]]:
     or a range.
     """
     if "*" in arg or "?" in arg or "[" in arg:
-        return glob.glob(arg)
+        return [os.path.abspath(x) for x in glob.glob(arg)]
     elif "-" in arg or "," in arg:
         # Process a range or a comma-separated list of ranges/numbers
         ranges = [range_item.strip() for range_item in arg.split(",")]

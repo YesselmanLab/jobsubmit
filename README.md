@@ -51,3 +51,4 @@ Runs as
 ```shell
 jobsubmit template.txt config.yaml
 ```
+This creates a runs directory with README_SUBMIT 
